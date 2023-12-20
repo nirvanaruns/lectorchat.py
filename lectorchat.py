@@ -1,9 +1,11 @@
-import time
-from TikTokLive import TikTokLiveClient
-import pyttsx3
-from datetime import datetime
-import os
-import pygame
+import time  # Importar el módulo time para gestionar el tiempo
+from TikTokLive import TikTokLiveClient  # Importar la clase TikTokLiveClient del módulo TikTokLive
+import pyttsx3  # Importar el módulo pyttsx3 para texto a voz
+from datetime import datetime  # Importar la clase datetime del módulo datetime
+import os  # Importar el módulo os para operaciones del sistema
+import pygame  # Importar el módulo pygame para reproducción de sonido
+import threading  # Importar el módulo threading para manejar subprocesos
+import pyautogui  # Importar el módulo pyautogui para control de teclado
 
 # Inicializar Pygame
 pygame.mixer.init()
@@ -12,7 +14,10 @@ pygame.mixer.init()
 engine = pyttsx3.init()
 
 # Variable global para controlar el estado de text-to-speech
-tts_enabled = True  # Puedes ajustar el valor inicial según tus necesidades
+tts_enabled = True
+
+# Variable global para controlar el tiempo de espera entre ejecuciones del comando "_a"
+last_a_command_time = {}
 
 # Lista de palabras a ignorar en el text-to-speech
 excluded_words = {
@@ -47,9 +52,11 @@ excluded_words = {
     "select": "l"
 }
 
+# Función para determinar si una palabra debe ser ignorada
 def ignore_word(word):
     return word.startswith("_") and len(word) > 1 or word.lower() in excluded_words
 
+# Obtener el usuario permitido desde el archivo tiktokchannel.txt
 def get_allowed_user():
     try:
         with open("tiktokchannel.txt", "r") as file:
@@ -58,6 +65,7 @@ def get_allowed_user():
         print("El archivo tiktokchannel.txt no se ha encontrado.")
         return None
 
+# Obtener el mapeo de apodos desde el archivo nicks.txt
 def get_nick_mapping():
     try:
         with open("nicks.txt", "r") as file:
@@ -67,6 +75,7 @@ def get_nick_mapping():
         print("El archivo nicks.txt no encontrado.")
         return {}
 
+# Actualizar el mapeo de apodos en el archivo nicks.txt
 def update_nick_mapping(username, new_nick):
     nick_mapping = get_nick_mapping()
     nick_mapping[username] = new_nick
@@ -74,6 +83,7 @@ def update_nick_mapping(username, new_nick):
         for user, nick in nick_mapping.items():
             file.write(f"{user} {nick}\n")
 
+# Reproducir un archivo WAV usando Pygame
 def play_wav(file_name):
     try:
         print(f"Reproduciendo {file_name}")
@@ -82,18 +92,15 @@ def play_wav(file_name):
     except pygame.error as e:
         print(f"Error al reproducir el archivo {file_name}: {e}")
 
+# Función para manejar eventos de comentarios de TikTok
 def on_ttcomment(comment_data):
-    global tts_enabled
+    global tts_enabled, last_a_command_time
 
     username = comment_data.user.nickname
     comment_text = comment_data.comment
 
-    # Verificar si comment_text es None antes de intentar llamar a lower()
     if comment_text is not None:
         comment_text = comment_text.lower()
-    else:
-        # Manejar el caso en que comment_text sea None
-        pass
 
     username = username.lower()
 
@@ -107,24 +114,21 @@ def on_ttcomment(comment_data):
     filtered_words = [word for word in words if not ignore_word(word)]
 
     if tts_enabled:
-        # Crear una lista para contener las partes del comentario con los archivos wav
         final_output = []
 
         for word in words:
             if ignore_word(word):
-                wav_file = f"Audios/{word}.wav"  # Modificado aquí, manteniendo el guion bajo
+                wav_file = f"Audios/{word}.wav"
                 if os.path.exists(wav_file):
                     play_wav(wav_file)
             else:
                 final_output.append(word)
 
-        # Verificar si se recibió el comando de cambio de nick
         if "_nick" in words and len(words) > words.index("_nick") + 1:
             new_nick = words[words.index("_nick") + 1]
             update_nick_mapping(username, new_nick)
-            username = new_nick  # Actualizar el nombre de usuario para usar el nuevo nick
+            username = new_nick
 
-        # Unir las partes del comentario y leer el resultado en el texto a voz
         final_comment = " ".join(final_output)
 
         nick_mapping = get_nick_mapping()
@@ -134,6 +138,22 @@ def on_ttcomment(comment_data):
         engine.say(f"{username} dijo: {final_comment}")
         engine.runAndWait()
 
+    # Verificar si se recibió el comando "_a"
+    if "_a" in words:
+        current_time = time.time()
+
+        # Verificar si ha pasado al menos 10 minutos desde la última ejecución de "_a" por cualquier usuario
+        if current_time - last_a_command_time.get(username, 0) > 600:
+            # Puede ejecutar el comando "_a"
+            last_a_command_time[username] = current_time
+        else:
+            print("Espera al menos 10 minutos entre ejecuciones del comando '_a'.")
+
+    # Verificar si se recibió el comando "_kremling" o cualquier otro comando en el directorio /Audios/
+    if words and words[0].startswith("_") and os.path.exists(f"Audios/{words[0]}.wav"):
+        play_wav(f"Audios/{words[0]}.wav")
+
+# Punto de entrada principal
 if __name__ == "__main__":
     allowed_user = get_allowed_user()
 
