@@ -138,7 +138,7 @@ def on_ttcomment(comment_data):
         engine.say(f"{username} dijo: {final_comment}")
         engine.runAndWait()
 
-    # Verificar si se recibió el comando "_a"
+    # HOTKEYS PARA SAMMI
     if "_a" in words:
         current_time = time.time()
 
