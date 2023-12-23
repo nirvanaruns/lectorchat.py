@@ -45,7 +45,8 @@ excluded_words = {
     "cleft": "g",
     "cright": "j",
     "start": "m",
-    "select": "l"
+    "select": "l",
+    "_kremling"
 }
 
 def ignore_word(word):
