@@ -1,11 +1,10 @@
-import time  # Importar el módulo time para gestionar el tiempo
-from TikTokLive import TikTokLiveClient  # Importar la clase TikTokLiveClient del módulo TikTokLive
-import pyttsx3  # Importar el módulo pyttsx3 para texto a voz
-from datetime import datetime  # Importar la clase datetime del módulo datetime
-import os  # Importar el módulo os para operaciones del sistema
-import pygame  # Importar el módulo pygame para reproducción de sonido
-import threading  # Importar el módulo threading para manejar subprocesos
-import pyautogui  # Importar el módulo pyautogui para control de teclado
+import time
+from TikTokLive import TikTokLiveClient
+import pyttsx3
+from datetime import datetime
+import os
+import pygame
+import threading
 
 # Inicializar Pygame
 pygame.mixer.init()
@@ -14,10 +13,7 @@ pygame.mixer.init()
 engine = pyttsx3.init()
 
 # Variable global para controlar el estado de text-to-speech
-tts_enabled = True
-
-# Variable global para controlar el tiempo de espera entre ejecuciones del comando "_a"
-last_a_command_time = {}
+tts_enabled = True  # Puedes ajustar el valor inicial según tus necesidades
 
 # Lista de palabras a ignorar en el text-to-speech
 excluded_words = {
@@ -52,11 +48,9 @@ excluded_words = {
     "select": "l"
 }
 
-# Función para determinar si una palabra debe ser ignorada
 def ignore_word(word):
     return word.startswith("_") and len(word) > 1 or word.lower() in excluded_words
 
-# Obtener el usuario permitido desde el archivo tiktokchannel.txt
 def get_allowed_user():
     try:
         with open("tiktokchannel.txt", "r") as file:
@@ -65,7 +59,6 @@ def get_allowed_user():
         print("El archivo tiktokchannel.txt no se ha encontrado.")
         return None
 
-# Obtener el mapeo de apodos desde el archivo nicks.txt
 def get_nick_mapping():
     try:
         with open("nicks.txt", "r") as file:
@@ -75,7 +68,6 @@ def get_nick_mapping():
         print("El archivo nicks.txt no encontrado.")
         return {}
 
-# Actualizar el mapeo de apodos en el archivo nicks.txt
 def update_nick_mapping(username, new_nick):
     nick_mapping = get_nick_mapping()
     nick_mapping[username] = new_nick
@@ -83,7 +75,6 @@ def update_nick_mapping(username, new_nick):
         for user, nick in nick_mapping.items():
             file.write(f"{user} {nick}\n")
 
-# Reproducir un archivo WAV usando Pygame
 def play_wav(file_name):
     try:
         print(f"Reproduciendo {file_name}")
@@ -92,15 +83,25 @@ def play_wav(file_name):
     except pygame.error as e:
         print(f"Error al reproducir el archivo {file_name}: {e}")
 
-# Función para manejar eventos de comentarios de TikTok
+# Nueva función para renombrar el archivo y activar otro programa
+def process_command(file_name, new_name):
+    time.sleep(5)  # Esperar 5 segundos antes de revertir el cambio
+    os.rename(f"sammicomandos/{file_name}", f"sammicomandos/{new_name}")
+    time.sleep(5)  # Esperar 5 segundos
+    os.rename(f"sammicomandos/{new_name}", f"sammicomandos/{file_name}")
+
 def on_ttcomment(comment_data):
-    global tts_enabled, last_a_command_time
+    global tts_enabled
 
     username = comment_data.user.nickname
     comment_text = comment_data.comment
 
+    # Verificar si comment_text es None antes de intentar llamar a lower()
     if comment_text is not None:
         comment_text = comment_text.lower()
+    else:
+        # Manejar el caso en que comment_text sea None
+        pass
 
     username = username.lower()
 
@@ -113,47 +114,46 @@ def on_ttcomment(comment_data):
     words = comment_text.split()
     filtered_words = [word for word in words if not ignore_word(word)]
 
-    if tts_enabled:
-        final_output = []
+    # Lista de archivos a procesar
+    files_to_process = {
+        "_ddleta.txt": "ddleta.txt",
+        "_pokemon.txt": "pokemon.txt",
+        "_efectoa.txt": "efectoa.txt",
+        # Agregar otros archivos según sea necesario
+    }
 
-        for word in words:
-            if ignore_word(word):
-                wav_file = f"Audios/{word}.wav"
-                if os.path.exists(wav_file):
-                    play_wav(wav_file)
-            else:
-                final_output.append(word)
+    for src_file, dest_file in files_to_process.items():
+        if src_file in words and tts_enabled:
+            # 1. Renombrar el archivo a su nuevo nombre
+            threading.Thread(target=process_command, args=(src_file, dest_file)).start()
 
-        if "_nick" in words and len(words) > words.index("_nick") + 1:
-            new_nick = words[words.index("_nick") + 1]
-            update_nick_mapping(username, new_nick)
-            username = new_nick
+            # 2. Deshabilitar el comando por 5 minutos
+            tts_enabled = False
+            threading.Timer(300, enable_tts).start()
 
-        final_comment = " ".join(final_output)
+            # 3. No leer nada si se escriben comandos especiales
+            return
 
-        nick_mapping = get_nick_mapping()
-        if username in nick_mapping:
-            username = nick_mapping[username]
+    # Verificar si hay comando de cambio de nick
+    if "_nick" in words and len(words) > words.index("_nick") + 1:
+        new_nick = words[words.index("_nick") + 1]
+        update_nick_mapping(username, new_nick)
+        username = new_nick  # Actualizar el nombre de usuario para usar el nuevo nick
 
-        engine.say(f"{username} dijo: {final_comment}")
-        engine.runAndWait()
+    # Unir las partes del comentario y leer el resultado en el texto a voz
+    final_comment = " ".join(filtered_words)
 
-    # HOTKEYS PARA SAMMI
-    if "_a" in words:
-        current_time = time.time()
+    nick_mapping = get_nick_mapping()
+    if username in nick_mapping:
+        username = nick_mapping[username]
 
-        # Verificar si ha pasado al menos 10 minutos desde la última ejecución de "_a" por cualquier usuario
-        if current_time - last_a_command_time.get(username, 0) > 600:
-            # Puede ejecutar el comando "_a"
-            last_a_command_time[username] = current_time
-        else:
-            print("Espera al menos 10 minutos entre ejecuciones del comando '_a'.")
+    engine.say(f"{username} dijo: {final_comment}")
+    engine.runAndWait()
 
-    # Verificar si se recibió el comando "_kremling" o cualquier otro comando en el directorio /Audios/
-    if words and words[0].startswith("_") and os.path.exists(f"Audios/{words[0]}.wav"):
-        play_wav(f"Audios/{words[0]}.wav")
+def enable_tts():
+    global tts_enabled
+    tts_enabled = True
 
-# Punto de entrada principal
 if __name__ == "__main__":
     allowed_user = get_allowed_user()
 
