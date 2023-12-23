@@ -31,6 +31,7 @@ excluded_words = {
     "cderecha": "j",
     "start": "m",
     "select": "l",
+    "_kremling",
     # Inglés
     "up": "w",
     "down": "s",
