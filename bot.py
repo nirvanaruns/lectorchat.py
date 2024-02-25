@@ -111,6 +111,48 @@ if __name__ == "__main__":
             formatted_comment = f"[{current_time}] {username}: {comment_text}"
             print(formatted_comment)
 
+            # Crear o eliminar el archivo a.txt si el comentario contiene "_a"
+            if "_a" in comment_text:
+                if not os.path.exists("sammicomandos"):
+                    os.makedirs("sammicomandos")
+                with open("sammicomandos/a.txt", "w") as file:
+                    file.write("Archivo creado por el usuario")
+
+                # Esperar 2 segundos y luego eliminar el archivo
+                time.sleep(2)
+                try:
+                    os.remove("sammicomandos/a.txt")
+                except FileNotFoundError:
+                    print("El archivo a.txt no existe.")
+
+            # Crear o eliminar el archivo ddleta.txt si el comentario contiene "_ddleta"
+            if "_ddleta" in comment_text:
+                if not os.path.exists("sammicomandos"):
+                    os.makedirs("sammicomandos")
+                with open("sammicomandos/ddleta.txt", "w") as file:
+                    file.write("Archivo creado por el usuario")
+
+                # Esperar 2 segundos y luego eliminar el archivo
+                time.sleep(2)
+                try:
+                    os.remove("sammicomandos/ddleta.txt")
+                except FileNotFoundError:
+                    print("El archivo ddleta.txt no existe.")
+
+            # Crear o eliminar el archivo krool.txt si el comentario contiene "_krool"
+            if "_krool" in comment_text:
+                if not os.path.exists("sammicomandos"):
+                    os.makedirs("sammicomandos")
+                with open("sammicomandos/krool.txt", "w") as file:
+                    file.write("Archivo creado por el usuario")
+
+                # Esperar 5.5 segundos y luego eliminar el archivo
+                time.sleep(5.5)
+                try:
+                    os.remove("sammicomandos/krool.txt")
+                except FileNotFoundError:
+                    print("El archivo krool.txt no existe.")
+
             words = comment_text.split()
             filtered_words = [word for word in words if not ignore_word(word)]
 
